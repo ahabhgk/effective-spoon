@@ -1,13 +1,13 @@
-use crate::module::ModuleBuilder;
+use crate::asset::Asset;
 
 pub trait Transformer {
   fn transform(args: TransformArgs) -> TransformResult;
 }
 
 pub struct TransformArgs {
-  pub module: ModuleBuilder,
+  pub asset: Asset,
 }
 
 pub struct TransformResult {
-  pub modules: Vec<ModuleBuilder>,
+  pub asset: Asset,
 }
