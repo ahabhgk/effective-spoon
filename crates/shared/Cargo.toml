@@ -1,0 +1,11 @@
+[package]
+name = "aczor_shared"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+petgraph = "0.6.0"
+futures = "0.3.21"
+anyhow = "1.0.56"
+async-recursion = "1.0.0"
+async-trait = "0.1.53"

@@ -3,7 +3,15 @@
 version = 3
 
 [[package]]
-name = "aczor"
+name = "aczor_resolver_default"
+version = "0.0.0"
+dependencies = [
+ "aczor_shared",
+ "url",
+]
+
+[[package]]
+name = "aczor_shared"
 version = "0.0.0"
 dependencies = [
  "anyhow",
@@ -11,8 +19,6 @@ dependencies = [
  "async-trait",
  "futures",
  "petgraph",
- "tokio",
- "url",
 ]
 
 [[package]]
@@ -270,15 +276,6 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
-
-[[package]]
-name = "tokio"
-version = "1.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2af73ac49756f3f7c01172e34a23e5d0216f6c32333757c2c61feb2bbff5a5ee"
-dependencies = [
- "pin-project-lite",
-]
 
 [[package]]
 name = "unicode-bidi"
