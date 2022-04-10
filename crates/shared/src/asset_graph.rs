@@ -17,7 +17,7 @@ pub struct AssetGraph<'o> {
 impl<'o> AssetGraph<'o> {
   pub fn new(options: &'o Options) -> Self {
     let root = Asset {
-      path: options.root.clone(),
+      path: options.root.clone().join("__ROOT__"),
       content: b"__ROOT__".to_vec(),
     };
     let mut graph = Graph::new();

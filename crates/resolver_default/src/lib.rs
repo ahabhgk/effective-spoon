@@ -4,6 +4,7 @@ use aczor_shared::{
   options::Options,
   plugin::{Plugin, ResolveArgs, ResolveResult, Resolver},
 };
+use url::Url;
 
 pub struct ResolverDefault;
 
@@ -17,9 +18,16 @@ impl Plugin for ResolverDefault {
 impl Resolver for ResolverDefault {
   async fn resolve(
     &self,
-    options: &Options,
+    _options: &Options,
     args: ResolveArgs<'_, '_>,
   ) -> Result<Option<ResolveResult>, Error> {
-    Ok(None)
+    let importer = args.importer;
+    let dependency = args.dependency;
+    let base_url = Url::from_file_path(&importer.path).ok();
+    let url = Url::options()
+      .base_url(base_url.as_ref())
+      .parse(&dependency.specifier)?;
+    let path = url.to_file_path().unwrap();
+    Ok(Some(ResolveResult { path }))
   }
 }
