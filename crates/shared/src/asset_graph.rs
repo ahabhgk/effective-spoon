@@ -1,94 +1,111 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
-use anyhow::Error;
 use async_recursion::async_recursion;
 use futures::future::try_join_all;
 use petgraph::{graph::NodeIndex, Graph};
+use smol_str::SmolStr;
+use url::Url;
 
-use crate::{asset::Asset, dependency::Dependency, options::Options, plugin::Transforming};
+use crate::{
+  asset::Asset,
+  dependency::Dependency,
+  driver::{Driver, FS},
+  error::{Error, Result},
+  plugin::Transforming,
+};
 
-pub struct AssetGraph<'o> {
+pub struct AssetGraph {
   graph: Graph<Asset, Dependency>,
-  root_idx: NodeIndex,
-  idx_by_path: HashMap<PathBuf, NodeIndex>,
-  options: &'o Options,
+  root_ix: NodeIndex,
+  ix_by_id: HashMap<Url, NodeIndex>,
 }
 
-impl<'o> AssetGraph<'o> {
-  pub fn new(options: &'o Options) -> Self {
-    let root = Asset {
-      path: options.root.clone().join("__ROOT__"),
-      content: b"__ROOT__".to_vec(),
-    };
+impl AssetGraph {
+  pub fn new(root_id: impl AsRef<str>) -> Self {
+    let root_id = Url::parse(root_id.as_ref()).unwrap();
+    let root = Asset::new(root_id.clone());
     let mut graph = Graph::new();
-    let root_idx = graph.add_node(root);
+    let root_ix = graph.add_node(root);
+    let mut ix_by_id = HashMap::new();
+
+    ix_by_id.insert(root_id, root_ix);
 
     Self {
       graph,
-      root_idx,
-      idx_by_path: HashMap::new(),
-      options,
+      root_ix,
+      ix_by_id,
     }
   }
 
-  pub async fn build(&mut self) -> Result<(), Error> {
-    let entries = self
-      .options
-      .entries
-      .clone()
+  pub async fn build<F: FS>(
+    &mut self,
+    entries: Vec<impl Into<SmolStr>>,
+    driver: &Driver<'_, '_, '_, F>,
+  ) -> Result<()> {
+    let args = entries
       .into_iter()
       .map(|entry| Dependency {
         is_async: false,
-        specifier: entry,
+        specifier: entry.into(),
+        data: None,
       })
       .collect();
-    self.build_children(self.root_idx, entries).await?;
+    self.build_children(self.root_ix, args, driver).await?;
     Ok(())
   }
 
   #[async_recursion]
-  async fn build_children(
+  async fn build_children<F: FS>(
     &mut self,
-    asset_idx: NodeIndex,
-    dependencies: Vec<Dependency>,
-  ) -> Result<(), Error> {
-    let importer = &self.graph[asset_idx];
+    asset_ix: NodeIndex,
+    deps: Vec<Dependency>,
+    driver: &Driver<F>,
+  ) -> Result<()> {
+    let importer = &self.graph[asset_ix];
 
-    let futs = dependencies.into_iter().map(|dependency| async {
-      let path = self.options.run_resolvers(importer, &dependency).await?;
+    let futs = deps.into_iter().map(|dep| async {
+      let resolved = driver.resolve(importer, &dep).await?;
 
-      if self.idx_by_path.contains_key(&path) {
+      if self.ix_by_id.contains_key(&resolved.asset_id) {
         return Ok(None);
       }
 
-      let asset = self.options.run_loaders(path).await?;
-      let transforming = self.options.run_transformers(asset).await?;
-      Ok::<Option<(Transforming, Dependency)>, Error>(Some((transforming, dependency)))
+      let loaded = driver.load(&resolved.asset_id).await?;
+      let mut asset = Asset::new(resolved.asset_id);
+      asset.set_content(loaded.content);
+      let transforming = driver.transform(asset).await?;
+      Ok::<Option<(Transforming, Dependency)>, Error>(Some((transforming, dep)))
     });
-    let children: Vec<Option<(Transforming, Dependency)>> = try_join_all(futs).await?;
+    let children: Vec<Option<(Transforming, Dependency)>> =
+      try_join_all(futs).await?;
 
     let children: Vec<(NodeIndex, Vec<Dependency>)> = children
       .into_iter()
       .filter_map(|child| child)
       .map(|(transforming, dependency)| {
         (
-          self.add_asset(asset_idx, transforming.asset, dependency),
+          self.add_asset(asset_ix, transforming.asset, dependency),
           transforming.dependencies,
         )
       })
       .collect();
     for child in children {
-      self.build_children(child.0, child.1).await?;
+      self.build_children(child.0, child.1, driver).await?;
     }
 
     Ok(())
   }
 
-  fn add_asset(&mut self, from_idx: NodeIndex, to_node: Asset, edge: Dependency) -> NodeIndex {
-    let path = to_node.path.clone();
-    let idx = self.graph.add_node(to_node);
-    self.idx_by_path.insert(path, idx);
-    self.graph.add_edge(from_idx, idx, edge);
-    idx
+  fn add_asset(
+    &mut self,
+    from_ix: NodeIndex,
+    to_node: Asset,
+    edge: Dependency,
+  ) -> NodeIndex {
+    let id = to_node.id.clone();
+    let ix = self.graph.add_node(to_node);
+    self.ix_by_id.insert(id, ix);
+    self.graph.add_edge(from_ix, ix, edge);
+    ix
   }
 }

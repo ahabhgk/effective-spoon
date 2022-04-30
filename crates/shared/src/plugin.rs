@@ -1,26 +1,17 @@
-use std::path::{Path, PathBuf};
+use std::fmt::Display;
 
-use anyhow::Error;
 use async_trait::async_trait;
+use url::Url;
 
-use crate::{asset::Asset, dependency::Dependency, options::Options};
+use crate::{asset::Asset, dependency::Dependency, error::Result};
 
-pub trait Plugin: Send + Sync {
-  fn name(&self) -> &'static str;
-}
-
-#[async_trait]
-pub trait InputFS: Plugin {
-  async fn read(&self, path: &Path) -> Result<Vec<u8>, Error>;
-}
+pub trait Plugin: Send + Sync + Display {}
 
 #[async_trait]
 pub trait Resolver: Plugin {
-  async fn resolve(
-    &self,
-    options: &Options,
-    args: ResolveArgs<'_, '_>,
-  ) -> Result<Option<ResolveResult>, Error>;
+  fn apply(&self, importer_id: &Url, specifier: &str) -> bool;
+
+  async fn resolve(&self, args: ResolveArgs<'_, '_>) -> Result<ResolveResult>;
 }
 
 pub struct ResolveArgs<'a, 'd> {
@@ -29,16 +20,18 @@ pub struct ResolveArgs<'a, 'd> {
 }
 
 pub struct ResolveResult {
-  pub path: PathBuf,
+  pub asset_id: Url,
 }
 
 #[async_trait]
 pub trait Loader: Plugin {
-  async fn load(&self, options: &Options, args: LoadArgs<'_>) -> Result<Option<LoadResult>, Error>;
+  fn apply(&self, id: &Url) -> bool;
+
+  async fn load(&self, args: LoadArgs<'_>) -> Result<LoadResult>;
 }
 
-pub struct LoadArgs<'a> {
-  pub path: &'a Path,
+pub struct LoadArgs<'i> {
+  pub asset_id: &'i Url,
 }
 
 pub struct LoadResult {
@@ -47,11 +40,9 @@ pub struct LoadResult {
 
 #[async_trait]
 pub trait Transformer: Plugin {
-  async fn transform(
-    &self,
-    options: &Options,
-    transforming: &mut Transforming,
-  ) -> Result<(), Error>;
+  fn apply(&self, id: &Url) -> bool;
+
+  async fn transform(&self, args: &mut Transforming) -> Result<()>;
 }
 
 pub struct Transforming {

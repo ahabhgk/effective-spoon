@@ -6,7 +6,6 @@ version = 3
 name = "aczor_resolver_default"
 version = "0.0.0"
 dependencies = [
- "aczor_shared",
  "url",
 ]
 
@@ -19,6 +18,8 @@ dependencies = [
  "async-trait",
  "futures",
  "petgraph",
+ "smol_str",
+ "url",
 ]
 
 [[package]]
@@ -246,10 +247,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde"
+version = "1.0.136"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
+
+[[package]]
 name = "slab"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
+
+[[package]]
+name = "smol_str"
+version = "0.1.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7475118a28b7e3a2e157ce0131ba8c5526ea96e90ee601d9f6bb2e286a35ab44"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "syn"
