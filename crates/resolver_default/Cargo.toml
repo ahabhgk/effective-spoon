@@ -1,8 +1,0 @@
-[package]
-name = "aczor_resolver_default"
-version = "0.0.0"
-edition = "2021"
-
-[dependencies]
-# aczor_shared = { path = "../shared" }
-url = "2.2.2"
